@@ -15,13 +15,14 @@ class ConfigException(Exception):
     
 class Worker:
 
-    ACCESS_ALLOW = '0750'
-    ACCESS_DENY = '0700'
+    ACCESS_ALLOW = 0750
+    ACCESS_DENY = 0700
     RE_DAY = re.compile('^[12]\d\d\d-[0123]?\d-[0123]?\d$')
     DIRTYPE_OTHER = 0
-    DIRTYPE_YEAR = 1
-    DIRTYPE_MONTH = 2
-    DIRTYPE_DAY = 3
+    DIRTYPE_ROOT = 1
+    DIRTYPE_YEAR = 2
+    DIRTYPE_MONTH = 3
+    DIRTYPE_DAY = 4
     
     def __init__(self, filename):
         '''
@@ -49,7 +50,10 @@ class Worker:
         self.baseDir = config.get('Control', 'BaseDir')
         
         # list of included days
-        days = config.get('Control', 'IncludeDays').split()
+        try:
+            days = config.get('Control', 'IncludeDays').split()
+        except:
+            days = []
         for day in days:
             if day.strip() == '' or day.startswith('#'):
                 continue
@@ -58,13 +62,19 @@ class Worker:
             self.includeDays.append(day)
         
         # list of included paths
-        paths = config.get('Control', 'IncludePaths').split()
+        try:
+            paths = config.get('Control', 'IncludePaths').split()
+        except:
+            paths = []
         for path in paths:
             if path.strip() != '' and not path.startswith('#'):
                 self.includePaths.append(path)
         
         # list of excluded paths
-        paths = config.get('Control', 'ExcludePaths').split()
+        try:
+            paths = config.get('Control', 'ExcludePaths').split()
+        except:
+            paths = []
         for path in paths:
             if path.strip() != '' and not path.startswith('#'):
                 if path.startswith('/'):
@@ -77,22 +87,7 @@ class Worker:
         '''
         Set permissions for all files and folders in baseDir
         '''
-        # allow access to the baseDir
-        os.chmod(self.baseDir, ALLOW_ACCESS)
-        
-        # iterate over the all content in baseDir
-        for root, dirs, files in os.walk(self.baseDir):
-            print 'Processing the root directory "%s"...' % self.baseDir
-            for file in files:
-                access = ACCESS_ALLOW if file in self.includePaths else ACCESS_DENY
-                os.chmod(os.path.join(self.baseDir, file), access)
-            for dir in dirs:
-                if dir in self.includePaths or Worker.RE_YEAR.match(dir):
-                    subdir = os.path.join(self.baseDir, dir)
-                    dirtype = self.DIRTYPE_YEAR if Worker.RE_YEAR.match(dir) else self.DIRTYPE_OTHER
-                    self.processDir(subdir, dirtype)
-                else:
-                    os.chmod(os.path.join(self.baseDir, dir), ACCESS_DENY)
+        self.processDir(self.baseDir, Worker.DIRTYPE_ROOT)
     #enddef
     
         
@@ -100,20 +95,26 @@ class Worker:
         '''
         Set permissions for the directory and its content
         '''
+        rootString = 'root' if dirtype == Worker.DIRTYPE_ROOT else ''
+        print 'Processing the %s directory "%s"...' % (rootString, currentDir)
+        
         # allow access to this dir
-        os.chmod(currentDir, ALLOW_ACCESS)
+        os.chmod(currentDir, Worker.ACCESS_ALLOW)
     
         # iterate over the all content in current dir
         for root, dirs, files in os.walk(currentDir):
-            print 'Processing the directory "%s"...' % currentDir
             for file in files:
                 access = ACCESS_ALLOW if file in self.includePaths else ACCESS_DENY
                 os.chmod(os.path.join(currentDir, file), access)
             for dir in dirs:
-                if dir in self.includePaths or Worker.RE_YEAR.match(dir):
+                if dirtype == self.DIRTYPE_ROOT:
+                    specialCondition = Worker.RE_YEAR.match(dir)
+                    subdirtype = self.DIRTYPE_YEAR
+                else:
+                    subdirtype = self.DIRTYPE_OTHER
+                if dir in self.includePaths or specialCondition:
                     subdir = os.path.join(currentDir, dir)
-                    dirtype = self.DIRTYPE_YEAR if Worker.RE_YEAR.match(dir) else self.DIRTYPE_OTHER
-                    self.processDir(subdir, dirtype)
+                    self.processDir(subdir, subdirtype)
                 else:
                     os.chmod(os.path.join(self.baseDir, dir), ACCESS_DENY)
 #endclass

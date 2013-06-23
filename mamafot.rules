@@ -2,9 +2,9 @@
 # Author niwi.cz, june 2013
 
 [Control]
-BaseDir = /media/data/zalohy/Fotky/
+BaseDir = /media/data/zalohy/Fotky/test
 
-IncludeDays =
+IncludeDaysR =
  2013-05-05
  2013-05-06
 
